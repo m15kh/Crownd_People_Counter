@@ -3,9 +3,7 @@ dataset/
 *.avi
 *.mkv
 *.jpg
-*.png
 *.jpeg
-*.csv
 *.json
 fasterrcnn_pytorch_training_pipeline/
 dataset_*
