@@ -4,7 +4,7 @@ dataset/
 *.mkv
 *.jpg
 *.jpeg
-*.json
 fasterrcnn_pytorch_training_pipeline/
 dataset_*
 input.mp4
+.vscode/settings.json

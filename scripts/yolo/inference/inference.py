@@ -1,18 +1,23 @@
 from ultralytics import YOLO
 import cv2
+import time  # Import time module for FPS calculation
+import numpy as np
+import psutil  # For memory usage tracking
+import os
+import json
 
 # Initialize video capture
-cap = cv2.VideoCapture('R:/M/code/Human_Counter/input/input.mp4')
+cap = cv2.VideoCapture('/home/fteam5/m/Crownd_People_Counter/input.mp4')
 
 # Define the rectangular region (x_min, y_min, x_max, y_max)
 RECT_REGION = (400, 0, 750, int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)))  # Full height of the video
 
 # Load the trained YOLOv8 model
-model = YOLO('R:/M/code/Human_Counter/scripts/yolo/train/runs/detect/yolo8_people_detection/weights/best.pt')  # Path to the trained model weights
+model = YOLO('best.pt')  # Path to the trained model weights
 
 # Run inference on a video
 results = model.predict(
-    source='R:/M/code/Human_Counter/input/input.mp4',  # Replace with the path to your video file
+    source='/home/fteam5/m/Crownd_People_Counter/input.mp4',  # Replace with the path to your video file
     save=True,  # Save the output video with predictions
     save_txt=False,  # Optionally save predictions in a text file
     conf=0.25,  # Confidence threshold for predictions
@@ -25,53 +30,74 @@ fourcc = cv2.VideoWriter_fourcc(*'mp4v')
 out = cv2.VideoWriter('output_with_count.mp4', fourcc, cap.get(cv2.CAP_PROP_FPS), 
                       (int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))))
 
+# Variables for FPS calculation
+prev_time = 0
+curr_time = 0
+fps = 0
+
+# For benchmarking
+benchmark_metrics = {
+    'model': 'YOLOv8',
+    'fps_values': [],
+    'inference_times': [],
+    'memory_usage': [],
+    'detection_counts': [],
+    'total_frames': 0,
+    'start_time': time.time(),
+}
+
 try:
     while True:
+        # Calculate FPS
+        curr_time = time.time()
+        if prev_time > 0:
+            fps = 1 / (curr_time - prev_time)
+            benchmark_metrics['fps_values'].append(fps)
+        prev_time = curr_time
+        
+        # Track memory usage
+        process = psutil.Process(os.getpid())
+        memory_info = process.memory_info().rss / 1024 / 1024  # in MB
+        benchmark_metrics['memory_usage'].append(memory_info)
+        
+        inference_start = time.time()
         ret, frame = cap.read()  # Read a frame from the video
         if not ret:
             break  # Exit the loop if no more frames are available
 
         # Get the next result from the YOLO model
         result = next(results)
+        inference_time = time.time() - inference_start
+        benchmark_metrics['inference_times'].append(inference_time)
+        benchmark_metrics['total_frames'] += 1
 
         # Extract detections
         detections = result.boxes.xyxy.cpu().numpy()  # Bounding boxes
         classes = result.boxes.cls.cpu().numpy()  # Class IDs
-        confidences = result.boxes.conf.cpu().numpy()  # Confidence scores
 
         # Filter detections within the rectangular region
         count = 0
-        for box, cls, conf in zip(detections, classes, confidences):
-            if cls == 0:  # Class 0 is 'person'
+        for box, cls in zip(detections, classes):
+            if cls == 0:  # Assuming class 0 is 'person'
                 x_min, y_min, x_max, y_max = box
-                
-                # Check if the center of the bounding box is within the zone
-                center_x = (x_min + x_max) / 2
-                center_y = (y_min + y_max) / 2
-                
-                if (RECT_REGION[0] <= center_x <= RECT_REGION[2] and 
-                    RECT_REGION[1] <= center_y <= RECT_REGION[3]):
+                if RECT_REGION[0] <= x_min <= RECT_REGION[2] and RECT_REGION[1] <= y_min <= RECT_REGION[3]:
                     count += 1
-                    # Draw the person's bounding box in green if they're in the zone
+                    # Optionally draw the bounding box
                     cv2.rectangle(frame, (int(x_min), int(y_min)), (int(x_max), int(y_max)), (0, 255, 0), 2)
-                    # Add confidence score
-                    cv2.putText(frame, f'{conf:.2f}', (int(x_min), int(y_min) - 10), 
-                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-                else:
-                    # Draw bounding boxes in red for people outside the zone
-                    cv2.rectangle(frame, (int(x_min), int(y_min)), (int(x_max), int(y_max)), (0, 0, 255), 2)
+                    
+        benchmark_metrics['detection_counts'].append(count)
 
-        # Draw the zone (rectangular region) with a more visible style
-        cv2.rectangle(frame, (RECT_REGION[0], RECT_REGION[1]), (RECT_REGION[2], RECT_REGION[3]), (255, 0, 0), 3)
-        cv2.putText(frame, "Counting Zone", (RECT_REGION[0], RECT_REGION[1] - 10), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 0, 0), 2)
+        # Draw the rectangular region
+        cv2.rectangle(frame, (RECT_REGION[0], RECT_REGION[1]), (RECT_REGION[2], RECT_REGION[3]), (255, 0, 0), 2)
 
-        # Display the count more prominently
-        # Background for text
-        cv2.rectangle(frame, (30, 30), (300, 80), (0, 0, 0), -1)
-        # Count text
-        cv2.putText(frame, f'People in Zone: {count}', (50, 60), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
+        # Display the count on the frame
+        cv2.putText(frame, f'Count: {count}', (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
+        
+        # Display FPS on the frame
+        cv2.putText(frame, f'FPS: {int(fps)}', (50, 90), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
+        
+        # Display inference time
+        cv2.putText(frame, f'Inference: {inference_time:.4f}s', (50, 130), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
 
         # Write the frame to the output video
         out.write(frame)
@@ -82,3 +108,32 @@ finally:
     cap.release()
     out.release()
     del results  # Explicitly delete the generator to ensure cleanup
+    
+    # Finalize benchmark metrics
+    benchmark_metrics['end_time'] = time.time()
+    benchmark_metrics['total_time'] = benchmark_metrics['end_time'] - benchmark_metrics['start_time']
+    benchmark_metrics['avg_fps'] = np.mean(benchmark_metrics['fps_values'])
+    benchmark_metrics['avg_inference_time'] = np.mean(benchmark_metrics['inference_times'])
+    benchmark_metrics['avg_memory_usage'] = np.mean(benchmark_metrics['memory_usage'])
+    benchmark_metrics['max_memory_usage'] = max(benchmark_metrics['memory_usage'])
+    
+    # Save metrics to file - save both in current directory and parent directory
+    with open('yolo_benchmark_metrics.json', 'w') as f:
+        json.dump(benchmark_metrics, f, indent=4)
+    
+    # Also save to parent directory for easier comparison
+    try:
+        parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        parent_path = os.path.join(parent_dir, 'yolo_benchmark_metrics.json')
+        with open(parent_path, 'w') as f:
+            json.dump(benchmark_metrics, f, indent=4)
+        print(f"Benchmark metrics also saved to: {parent_path}")
+    except Exception as e:
+        print(f"Could not save benchmark metrics to parent directory: {e}")
+    
+    print(f"YOLOv8 Benchmark Summary:")
+    print(f"Average FPS: {benchmark_metrics['avg_fps']:.2f}")
+    print(f"Average Inference Time: {benchmark_metrics['avg_inference_time']:.4f} seconds")
+    print(f"Average Memory Usage: {benchmark_metrics['avg_memory_usage']:.2f} MB")
+    print(f"Max Memory Usage: {benchmark_metrics['max_memory_usage']:.2f} MB")
+    print(f"Total Processing Time: {benchmark_metrics['total_time']:.2f} seconds")
