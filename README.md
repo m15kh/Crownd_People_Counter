@@ -9,7 +9,7 @@
   ![DINO](assets/dino.gif)  
 
 - **Fast R-CNN**:  
-  ![Fast R-CNN](assets/gif)  
+  ![Fast R-CNN](assets/rcnn.gif)  
 
 - **YOLO**:  
   ![YOLO](assets/yolo.gif)  
