@@ -9,7 +9,7 @@
   ![DINO](assets/dino.gif)  
 
 - **Fast R-CNN**:  
-  ![Fast R-CNN](assets/gif.mp4)  
+  ![Fast R-CNN](assets/gif)  
 
 - **YOLO**:  
   ![YOLO](assets/yolo.gif)  
@@ -18,8 +18,6 @@
 [Google Drive Link](https://drive.google.com/drive/u/0/folders/1FGkSAPAb_RJfBTVlrp1HlUTjGZn_Wlpn)
 
 
-> **Note**: Inline video playback may not work on GitHub. If the videos do not display, you can download them from the links above or access them on Google Drive:  
-[Google Drive Link](https://drive.google.com/drive/u/0/folders/1FGkSAPAb_RJfBTVlrp1HlUTjGZn_Wlpn)
 
 ### Methodology
 
