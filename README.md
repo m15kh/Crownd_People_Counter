@@ -27,9 +27,8 @@
 - **Fast R-CNN**:  
   I followed the tutorial from this [blog post](https://debuggercafe.com/optimizing-faster-rcnn-mobilenetv3-for-real-time-inference-on-cpu/). However, due to time constraints, I did not train the model for our specific purpose, which may affect the results.
 
-======================================================
-        OBJECT DETECTION MODEL BENCHMARK REPORT        
-======================================================
+# OBJECT DETECTION MODEL BENCHMARK REPORT        
+
 
 YOLO v8:
   - Average FPS: 91.07
