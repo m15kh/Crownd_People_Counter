@@ -8,3 +8,5 @@ dataset/
 *.csv
 *.json
 fasterrcnn_pytorch_training_pipeline/
+dataset_*
+input.mp4
