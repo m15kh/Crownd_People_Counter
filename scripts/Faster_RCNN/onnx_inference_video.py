@@ -8,7 +8,6 @@ python onnx_inference_video.py --input ../inference_data/video_4_trimmed_1.mp4 -
 
 import numpy as np
 import cv2
-from sklearn import pipeline
 import torch
 import glob as glob
 import os
@@ -16,18 +15,20 @@ import time
 import argparse
 import yaml
 import onnxruntime
+import json
+import psutil
 
-from fasterrcnn_pytorch_training_pipeline.utils.general import set_infer_dir
-from fasterrcnn_pytorch_training_pipeline.utils.annotations import (
+from utils.general import set_infer_dir
+from utils.annotations import (
     inference_annotations, 
     annotate_fps, 
     convert_detections,
     convert_pre_track,
     convert_post_track
 )
-from fasterrcnn_pytorch_training_pipeline.utils.transforms import infer_transforms, resize
-from fasterrcnn_pytorch_training_pipeline.deep_sort_realtime.deepsort_tracker import DeepSort
-from fasterrcnn_pytorch_training_pipeline.utils.logging import LogJSON
+from utils.transforms import infer_transforms, resize
+from deep_sort_realtime.deepsort_tracker import DeepSort
+from utils.logging import LogJSON
 
 def read_return_video_data(video_path):
     cap = cv2.VideoCapture(video_path)
@@ -118,6 +119,18 @@ def parse_opt():
 
 def main(args):
     np.random.seed(42)
+    
+    # For benchmarking
+    benchmark_metrics = {
+        'model': 'Faster R-CNN',
+        'fps_values': [],
+        'inference_times': [],
+        'memory_usage': [],
+        'detection_counts': [],
+        'total_frames': 0,
+        'start_time': time.time(),
+    }
+    
     if args['track']: # Initialize Deep SORT tracker if tracker is selected.
         tracker = DeepSort(max_age=30)
     # Load model.
@@ -167,6 +180,11 @@ def main(args):
 
     # read until end of video
     while(cap.isOpened()):
+        # Track memory usage
+        process = psutil.Process(os.getpid())
+        memory_info = process.memory_info().rss / 1024 / 1024  # in MB
+        benchmark_metrics['memory_usage'].append(memory_info)
+        
         # capture each frame of the video
         ret, frame = cap.read()
         if ret:
@@ -185,12 +203,19 @@ def main(args):
             forward_end_time = time.time()
 
             forward_pass_time = forward_end_time - start_time
+            # Save inference time
+            benchmark_metrics['inference_times'].append(forward_pass_time)
+            
             # Get the current fps.
             fps = 1 / (forward_pass_time)
+            # Add fps to benchmark metrics
+            benchmark_metrics['fps_values'].append(fps)
             # Add `fps` to `total_fps`.
             total_fps += fps
             # Increment frame count.
             frame_count += 1
+            benchmark_metrics['total_frames'] += 1
+            
             outputs = {}
             outputs['boxes'] = torch.tensor(preds[0])
             outputs['labels'] = torch.tensor(preds[1])
@@ -201,11 +226,13 @@ def main(args):
             if args['log_json']:
                 log_json.update(frame, save_name, outputs[0], CLASSES)
 
+            detection_count = 0
             # Carry further only if there are detected boxes.
             if len(outputs[0]['boxes']) != 0:
                 draw_boxes, pred_classes, scores = convert_detections(
                     outputs, detection_threshold, CLASSES, args
                 )
+                detection_count = len(draw_boxes)
                 if args['track']:
                     tracker_inputs = convert_pre_track(
                         draw_boxes, pred_classes, scores
@@ -225,7 +252,20 @@ def main(args):
                 )
             else:
                 frame = orig_frame
+            
+            benchmark_metrics['detection_counts'].append(detection_count)
+            
             frame = annotate_fps(frame, fps)
+            # Also display inference time
+            cv2.putText(
+                frame, 
+                f'Inference: {forward_pass_time:.4f}s', 
+                (10, 70), 
+                cv2.FONT_HERSHEY_SIMPLEX, 
+                0.7, 
+                (0, 255, 255), 
+                2
+            )
 
             final_end_time = time.time()
             forward_and_annot_time = final_end_time - start_time
@@ -255,6 +295,25 @@ def main(args):
     # Calculate and print the average FPS.
     avg_fps = total_fps / frame_count
     print(f"Average FPS: {avg_fps:.3f}")
+    
+    # Finalize benchmark metrics
+    benchmark_metrics['end_time'] = time.time()
+    benchmark_metrics['total_time'] = benchmark_metrics['end_time'] - benchmark_metrics['start_time']
+    benchmark_metrics['avg_fps'] = np.mean(benchmark_metrics['fps_values'])
+    benchmark_metrics['avg_inference_time'] = np.mean(benchmark_metrics['inference_times'])
+    benchmark_metrics['avg_memory_usage'] = np.mean(benchmark_metrics['memory_usage'])
+    benchmark_metrics['max_memory_usage'] = max(benchmark_metrics['memory_usage'])
+    
+    # Save metrics to file
+    with open(os.path.join(OUT_DIR, 'rcnn_benchmark_metrics.json'), 'w') as f:
+        json.dump(benchmark_metrics, f, indent=4)
+    
+    print(f"\nFaster R-CNN Benchmark Summary:")
+    print(f"Average FPS: {benchmark_metrics['avg_fps']:.2f}")
+    print(f"Average Inference Time: {benchmark_metrics['avg_inference_time']:.4f} seconds")
+    print(f"Average Memory Usage: {benchmark_metrics['avg_memory_usage']:.2f} MB")
+    print(f"Max Memory Usage: {benchmark_metrics['max_memory_usage']:.2f} MB")
+    print(f"Total Processing Time: {benchmark_metrics['total_time']:.2f} seconds")
 
 if __name__ == '__main__':
     args = parse_opt()
