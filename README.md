@@ -3,14 +3,19 @@
 
 ### Video Results
 
+### Video Results
+
 - **DINO**:  
-  <video src="assets/dino.gif" controls width="600"></video>  
+  ![DINO](assets/dino.gif)  
 
 - **Fast R-CNN**:  
-  <video src="assets/gif.mp4" controls width="600"></video>  
+  ![Fast R-CNN](assets/gif.mp4)  
 
 - **YOLO**:  
-  <video src="assets/yolo.gif" controls width="600"></video>  
+  ![YOLO](assets/yolo.gif)  
+
+> **Note**: Inline video playback may not work on GitHub. If the videos do not display, you can download them from the links above or access them on Google Drive:  
+[Google Drive Link](https://drive.google.com/drive/u/0/folders/1FGkSAPAb_RJfBTVlrp1HlUTjGZn_Wlpn)
 
 
 > **Note**: Inline video playback may not work on GitHub. If the videos do not display, you can download them from the links above or access them on Google Drive:  
