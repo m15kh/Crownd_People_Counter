@@ -56,3 +56,7 @@ Conclusion:
 > **Note**: This comparison was conducted using the script `benchmark_comparison\benchmark_comparison.py`.  
 Additionally, a visual representation of the performance comparison has been added:  
 ![Performance Comparison](benchmark_comparison/performance_comparison.png)
+
+I also fine-tuned Faster R-CNN, and the Mean Average Precision (mAP) plots are available:  
+![mAP Plot](scripts/Faster_RCNN/rcnn_train/map.png)  
+The plot includes mAP@0.5
