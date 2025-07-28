@@ -1,8 +1,5 @@
 # Human Counter
 
-
-### Video Results
-
 ### Video Results
 
 - **DINO**:  
